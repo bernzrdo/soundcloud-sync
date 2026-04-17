@@ -3,6 +3,7 @@ import log from './log.js'
 import { getTracks, ripTrack } from './soundcloud/main.js'
 import { join } from 'path'
 import notify from './notify.js'
+import prettyMs from 'pretty-ms'
 
 const DOWNLOAD_PATH = process.env.DOWNLOAD_PATH!
 const TRASH_PATH = join(DOWNLOAD_PATH, '.trash')
@@ -77,25 +78,5 @@ function eta(start: number, done: number, total: number){
     const avgTime = elapsed / done
     const msLeft = avgTime * (total - done)
 
-    // seconds
-    let unit = 'second'
-    let time = msLeft / 1e3
-    if(time > 60){
-        // minutes
-        unit = 'minute'
-        time /= 60
-        if(time > 60){
-            // hours
-            unit = 'hour'
-            time /= 60
-            if(time > 24){
-                // days
-                unit = 'day'
-                time /= 24
-            }
-        }
-    }
-
-    time = Math.round(time)
-    return `${time} ${unit}${time != -1 ? 's' : ''}`
+    return prettyMs(msLeft)
 }
