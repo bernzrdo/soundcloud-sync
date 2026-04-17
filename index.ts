@@ -48,9 +48,16 @@ try{
     const toAdd = tracks
         .filter(({ id })=>!downloadedTracks.has(id))
     
+    const start = performance.now()
     for(let [i, track] of toAdd.entries()){
+
         await ripTrack(DOWNLOAD_PATH, track)
-        log('main', `${Math.floor((i + 1) / toAdd.length * 100)}% done`)
+
+        const trackCount = i + 1
+        const progress = trackCount / toAdd.length
+        const tracksLeft = toAdd.length - trackCount
+
+        log('main', `${Math.floor(progress * 100)}% done / ${tracksLeft} track${tracksLeft != 1 ? 's' : ''} left (${eta(start, trackCount, toAdd.length)})`)
     }
 
 }catch(e: unknown){
@@ -62,4 +69,33 @@ try{
         console.error(e)
     }
     
+}
+
+function eta(start: number, done: number, total: number){
+
+    const elapsed = performance.now() - start
+    const avgTime = elapsed / done
+    const msLeft = avgTime * (total - done)
+
+    // seconds
+    let unit = 'second'
+    let time = msLeft / 1e3
+    if(time > 60){
+        // minutes
+        unit = 'minute'
+        time /= 60
+        if(time > 60){
+            // hours
+            unit = 'hour'
+            time /= 60
+            if(time > 24){
+                // days
+                unit = 'day'
+                time /= 24
+            }
+        }
+    }
+
+    time = Math.round(time)
+    return `${time} ${unit}${time != -1 ? 's' : ''}`
 }
