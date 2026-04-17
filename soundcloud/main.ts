@@ -79,7 +79,10 @@ export async function ripTrack(path: string, { id, title, artist }: Track){
 
     // find progressive stream
     const dest = track.media.transcodings.find(t=>t.format.protocol == 'progressive')
-    if(!dest) throw new Error(`No good transcoding found for track ${artist} - ${title} (${id})`)
+    if(!dest){
+        log('ripTrack', `No good transcoding found for track ${artist} - ${title} (${id})`)
+        return
+    }
 
     // rip track
     log('ripTrack', 'Downloading track...')
