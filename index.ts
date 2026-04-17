@@ -48,8 +48,10 @@ try{
     const toAdd = tracks
         .filter(({ id })=>!downloadedTracks.has(id))
     
-    for(let track of toAdd)
+    for(let [i, track] of toAdd.entries()){
         await ripTrack(DOWNLOAD_PATH, track)
+        log('main', `${Math.floor((i + 1) / toAdd.length * 100)}% done`)
+    }
 
 }catch(e: unknown){
     if(e instanceof Error){
