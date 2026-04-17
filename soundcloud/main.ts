@@ -3,8 +3,10 @@ import type { SoundcloudLikes, SoundcloudTrack } from './types.js'
 import type { Track } from '../types.js'
 import NodeID3 from 'node-id3'
 import mimeTypes from 'mime-types'
-import { writeFile } from 'fs/promises'
+import { readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
+import { execSync } from 'child_process'
 
 const USER_ID = process.env.USER_ID!
 const CLIENT_ID = process.env.CLIENT_ID!
@@ -77,19 +79,9 @@ export async function ripTrack(path: string, { id, title, artist }: Track){
     if(!req.ok) throw new Error(`Status: ${req.status}! Probably needs a new Client ID`)
     const track: SoundcloudTrack = await req.json()
 
-    // find progressive stream
-    const dest = track.media.transcodings.find(t=>t.format.protocol == 'progressive')
-    if(!dest){
-        log('ripTrack', `No good transcoding found for track ${artist} - ${title} (${id})`)
-        return
-    }
-
     // rip track
-    log('ripTrack', 'Downloading track...')
-    const streamRes = await fetch(`${dest.url}?${authParam}`)
-    const stream = await streamRes.json()
-    const music = await fetch(stream.url)
-    let buffer: Buffer = Buffer.from(await music.arrayBuffer())
+    let buffer = await rip(track, authParam, { id, title, artist })
+    if(!buffer) return
 
     // add id3
     log('ripTrack', 'Adding metadata...')
@@ -97,14 +89,14 @@ export async function ripTrack(path: string, { id, title, artist }: Track){
         title,
         artist: artist.replaceAll(', ', ' / '),
         image: await grabArt(track.artwork_url ?? track.user.avatar_url)
-    }, buffer)
+    }, buffer) as any
 
     // save track
     log('ripTrack', 'Saving...')
     const filename = `${artist} - ${title} 【${id}】.mp3`.replace(/[\\\/:*?"<>|]/g, '')
     await writeFile(
         join(path, filename),
-        buffer
+        buffer!
     )
 
 }
@@ -120,5 +112,36 @@ async function grabArt(url: string){
         description: '',
         imageBuffer: Buffer.from(arrayBuffer)
     }
+
+}
+
+async function rip(track: SoundcloudTrack, authParam: string, { id, title, artist }: Track){
+
+    let dest = track.media.transcodings.find(t=>t.format.protocol == 'progressive')
+    if(dest){
+        log('ripTrack', 'Downloading track with MP3...')
+        const streamRes = await fetch(`${dest.url}?${authParam}`)
+        const stream = await streamRes.json()
+        const music = await fetch(stream.url)
+        return Buffer.from(await music.arrayBuffer())
+    }
+
+    dest = track.media.transcodings.find(t=>t.format.protocol == 'hls')
+    if(dest){
+        log('ripTrack', 'Downloading track with HLS...')
+
+        const streamRes = await fetch(`${dest.url}?${authParam}`)
+        const stream = await streamRes.json()
+        const tempFile = join(__dirname, `temp_${randomUUID()}.mp3`)
+        
+        execSync(`ffmpeg -i "${stream.url}" -codec:a libmp3lame -qscale:a 2 "${tempFile}" -y`);
+        
+        const buffer = await readFile(tempFile)
+        await unlink(tempFile)
+
+        return buffer
+    }
+
+    log('ripTrack', `No good transcoding found for track ${artist} - ${title} (${id})`)
 
 }
