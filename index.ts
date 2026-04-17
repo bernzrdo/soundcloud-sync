@@ -42,7 +42,10 @@ try{
     
     for(let filename of toRemove){
         log('main', `Removing "${filename}"...`)
-        await rename(join(DOWNLOAD_PATH, filename), TRASH_PATH)
+        await rename(
+            join(DOWNLOAD_PATH, filename),
+            join(TRASH_PATH, filename)
+        )
     }
 
     // add new tracks
